@@ -8,10 +8,12 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.navigation.fragment.findNavController
 import com.google.android.material.snackbar.Snackbar
@@ -19,6 +21,9 @@ import com.google.firebase.Timestamp
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.ktx.storage
+import com.google.firebase.storage.ktx.storageMetadata
+import ipca.example.instaclone.LoginActivity.Companion.TAG
 import ipca.example.instaclone.databinding.FragmentPostBinding
 import ipca.example.instaclone.models.Post
 import java.io.File
@@ -32,6 +37,7 @@ class PostFragment : Fragment() {
 
     private var _binding: FragmentPostBinding? = null
     private val binding get() = _binding!!
+
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -47,27 +53,41 @@ class PostFragment : Fragment() {
         dispatchTakePictureIntent()
 
 
-
         binding.fabSend.setOnClickListener {
-          Post(
-              binding.editTextComent.text.toString(),
-              Date(),
-              Firebase.auth.currentUser?.uid?:""
+           Post(
+               binding.editTextComent.text.toString(),
+               Date(),
+               Firebase.auth.currentUser?.uid ?: ""
 
-          ).sendPost {
-              error ->  error?.let {
-              Snackbar.make(binding.root, "Alguma coisa correu mal", Snackbar.LENGTH_LONG)
-              }?: kotlin.run {
-                  findNavController().popBackStack()
-              }
-          }
-      }
+           ).sendPost { error ->
+               error?.let {
+                   Snackbar.make(binding.root, "Alguma coisa correu mal", Snackbar.LENGTH_LONG)
+               } ?: kotlin.run {
+                   findNavController().popBackStack()
+               }
+           }
 
+            uploadFile{ filename ->
+                filename?.let {
+                    Post(
+                        binding.editTextComent.text.toString(),
+                        Date(),
+                        Firebase.auth.currentUser?.uid ?: ""
 
+                    ).sendPost { error ->
+                        error?.let {
+                            Snackbar.make(binding.root, "Alguma coisa correu mal", Snackbar.LENGTH_LONG)
+                        } ?: kotlin.run {
+                            findNavController().popBackStack()
+                        }
+                    }
 
+                } ?: kotlin.run {
+                   Toast.makeText(requireContext(),"Error",Toast.LENGTH_SHORT)
+                }
+            }
+        }
     }
-
-
 
 
     override fun onDestroyView() {
@@ -77,12 +97,12 @@ class PostFragment : Fragment() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
-          //  val imageBitmap = data?.extras?.get("data") as Bitmap
+            //  val imageBitmap = data?.extras?.get("data") as Bitmap
             BitmapFactory.decodeFile(currentPhotoPath).apply {
                 binding.imageViewPhoto.setImageBitmap(this)
             }
 
-        }else{
+        } else {
             findNavController().popBackStack()
         }
     }
@@ -119,7 +139,8 @@ class PostFragment : Fragment() {
     private fun createImageFile(): File {
         // Create an image file name
         val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
-        val storageDir: File? = requireActivity().getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+        val storageDir: File? =
+            requireActivity().getExternalFilesDir(Environment.DIRECTORY_PICTURES)
         return File.createTempFile(
             "JPEG_${timeStamp}_", /* prefix */
             ".jpg", /* suffix */
@@ -129,6 +150,34 @@ class PostFragment : Fragment() {
             currentPhotoPath = absolutePath
         }
     }
+
+
+    fun uploadFile( callback: (String?) -> Unit) {
+        val storage = Firebase.storage
+        val storageRef = storage.reference
+        var file = Uri.fromFile(File(currentPhotoPath))
+        var metadata = storageMetadata {
+            contentType = "image/jpeg"
+        }
+
+
+        val uploadTask = storageRef.child("images/${file.lastPathSegment}").putFile(file, metadata)
+
+        uploadTask.addOnProgressListener {
+
+            val progress = (100.0 * it.bytesTransferred) / it.totalByteCount
+            Log.d(TAG, "Upload is $progress% done")
+        }.addOnPausedListener {
+            Log.d(TAG, "Upload is paused")
+        }.addOnFailureListener {
+           callback(null)
+        }.addOnSuccessListener {
+
+          callback(file.lastPathSegment)
+        }
+
+    }
+
 
 
     companion object{
