@@ -3,23 +3,25 @@ package ipca.example.instaclone.models
 import androidx.navigation.fragment.findNavController
 import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import org.w3c.dom.Document
 import java.util.*
 import kotlin.collections.HashMap
 
 data class Post (
     var comment     : String,
     var postDate    : Date,
-    var userId      : String,
-    var urlToImage  : String
+    var userId      : String
+   // var urlToImage  : String
 ){
     fun toHashMap() : HashMap<String, Any> {
            return hashMapOf(
                "comment" to comment,
                "postDate" to Timestamp(Date()),
-               "userId" to userId,
-                "urlToImage" to urlToImage
+               "userId" to userId
+                //"urlToImage" to urlToImage
            )
     }
 
@@ -36,6 +38,13 @@ data class Post (
     }
 
     companion object {
+        fun fromDoc(doc : DocumentSnapshot) : Post{
+            return Post(
+                doc.getString("comment")!!,
+                doc.getDate("postDate")!!,
+                doc.getString("userId")!!
 
+            )
+        }
     }
 }

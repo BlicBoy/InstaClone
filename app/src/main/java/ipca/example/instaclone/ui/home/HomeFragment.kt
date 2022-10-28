@@ -4,15 +4,29 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.DefaultItemAnimator
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 import ipca.example.instaclone.R
 import ipca.example.instaclone.databinding.FragmentHomeBinding
+import ipca.example.instaclone.databinding.RowPostBinding
+import ipca.example.instaclone.models.Post
 
 class HomeFragment : Fragment() {
 
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
+
+    var posts = arrayListOf<Post>()
+
+    var postsAdapter = PostsAdapter()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -29,10 +43,63 @@ class HomeFragment : Fragment() {
         binding.fabPostPhoto.setOnClickListener{
             findNavController().navigate(R.id.action_navigation_home_to_postFragment)
         }
+        
+        val db = Firebase.firestore
+        db.collection("posts").addSnapshotListener { value, error ->
+            posts.clear()
+            for (doc in value?.documents!!){
+                posts.add(Post.fromDoc(doc))
+            }
+            postsAdapter.notifyDataSetChanged()
+        }
+        
+        binding.recycleViewPosts.layoutManager =
+            LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false)
+        binding.recycleViewPosts.adapter = postsAdapter
+        binding.recycleViewPosts.itemAnimator = DefaultItemAnimator()
     }
+
 
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+
+
+
+    inner class PostsAdapter : RecyclerView.Adapter<PostsAdapter.ViewHolder>() {
+
+
+        inner class ViewHolder(binding: RowPostBinding) : RecyclerView.ViewHolder(binding.root){
+            val textViewTitle : TextView = binding.textViewTitle
+            val textviewDate : TextView = binding.textViewDate
+            val imageViewPhoto : ImageView = binding.imageViewFoto
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+            return ViewHolder(
+                RowPostBinding.inflate(
+                    LayoutInflater.from(parent.context),
+                    parent,
+                    false))
+
+
+
+
+
+        }
+
+        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+            var item = posts[position]
+            holder.apply {
+                textViewTitle.text = item.comment
+                textviewDate.text = item.postDate.toString()
+            }
+        }
+
+        override fun getItemCount(): Int {
+           return posts.size
+        }
     }
 }
