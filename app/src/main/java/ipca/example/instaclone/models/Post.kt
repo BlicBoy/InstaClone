@@ -26,7 +26,7 @@ data class Post (
     fun sendPost(callback:(error:String?)-> Unit){
         val db = Firebase.firestore
         db.collection("posts")
-            .add(this)
+            .add(toHashMap())
             .addOnSuccessListener { documentReference ->
                callback(null)
             }
